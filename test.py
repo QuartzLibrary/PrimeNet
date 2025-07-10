@@ -130,12 +130,12 @@ def generate_synthetic_image(dna_seq, dnase_seq, methylation_seq, protospacerloc
 # Custom Dataset Class: SequenceDataset
 # 自定义数据集类，用于加载序列数据并生成伪图像。
 # --------------------------------------------------------------------------------
-class SequenceDataset(Dataset):
+class SequenceDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
     """
     Custom dataset class to load sequence data and generate synthetic images.
     自定义数据集类，用于加载序列数据并生成伪图像。
     """
-    def __init__(self, data):
+    def __init__(self, data: pd.DataFrame):
         """
         Initialize the dataset with a pandas DataFrame.
         用一个pandas DataFrame初始化数据集。
@@ -154,7 +154,7 @@ class SequenceDataset(Dataset):
         """
         return len(self.data)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Get the sample at index 'idx', generate synthetic images, and retrieve target labels.
         根据索引获取样本，生成伪图像，并提取目标标签。

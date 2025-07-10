@@ -1,8 +1,12 @@
+from typing import Union
+
 import torch
 import torch.nn as nn
 
+KernelSize = Union[int, tuple[int, int]]
+
 class ChannelAttention(nn.Module):
-    def __init__(self, in_channels, reduction_ratio=16):
+    def __init__(self, in_channels: int, reduction_ratio: int = 16):
         super(ChannelAttention, self).__init__()
         reduced_channels = max(1, in_channels // reduction_ratio)
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
@@ -11,22 +15,22 @@ class ChannelAttention(nn.Module):
         self.fc2 = nn.Conv2d(reduced_channels, in_channels, kernel_size=1, bias=False)
         self.sigmoid = nn.Sigmoid()
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         avg_out = self.fc2(self.relu(self.fc1(self.avg_pool(x))))
         return x * self.sigmoid(avg_out)
 
 class Conv_Attention(nn.Module):
-    def __init__(self, in_channels, kernel_size=3):
+    def __init__(self, in_channels: int, kernel_size: int = 3):
         super(Conv_Attention, self).__init__()
         self.conv1 = nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size, padding=kernel_size // 2, bias=False)
         self.sigmoid = nn.Sigmoid()
         # self.conv2 = nn.Conv2d(in_channels, in_channels, kernel_size=1, padding=0, bias=False)
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # return self.conv2(x) * self.sigmoid(self.conv1(x))
         return x * self.sigmoid(self.conv1(x))
 
 class ResidualConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=(3, 1), stride=(1, 1)):
+    def __init__(self, in_channels: int, out_channels: int, kernel_size: KernelSize = (3, 1), stride: KernelSize = (1, 1)):
         super(ResidualConvBlock, self).__init__()
         # 第一层卷积
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=(1, 0))
@@ -35,7 +39,7 @@ class ResidualConvBlock(nn.Module):
         self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=(1, 1), stride=(1, 1))       
         self.residual = nn.Conv2d(in_channels, out_channels, kernel_size=(1, 1)) if in_channels != out_channels else nn.Identity()
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # 计算残差
         residual = self.residual(x)
         # 卷积过程
@@ -47,7 +51,7 @@ class ResidualConvBlock(nn.Module):
 
 # 多尺度卷积层
 class MultiScaleConv2d(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels: int, out_channels: int):
         super(MultiScaleConv2d, self).__init__()
         self.conv1x2 = nn.Conv2d(in_channels, out_channels, kernel_size=(1, 2), padding=(0, 0))
         self.attn1x2 = Conv_Attention(out_channels) # 添加注意力机制
@@ -61,7 +65,7 @@ class MultiScaleConv2d(nn.Module):
         # 一个额外的卷积层来将输出通道数调整为你需要的通道数
         self.adjust_channels = nn.Conv2d(conv_num * out_channels, out_channels, kernel_size=1)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # 分别通过不同尺度的卷积层
         out1x2 = self.conv1x2(x)
         out1x2 = self.attn1x2(out1x2)
@@ -130,7 +134,7 @@ class PrimeNet(nn.Module):
             nn.Linear(192, 1)
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.attn0(x)
         x = self.conv1(x)
         x = nn.ReLU(inplace=False)(x)
