@@ -135,36 +135,65 @@ class PrimeNet(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        batch = x.shape[0]
+        assert x.shape == (batch, 8, 128, 2), f"{x.shape}"
+        
         x = self.attn0(x)
+        assert x.shape == (batch, 8, 128, 2), f"{x.shape}"
         x = self.conv1(x)
+        assert x.shape == (batch, 112, 128, 1), f"{x.shape}"
         x = nn.ReLU(inplace=False)(x)
+        assert x.shape == (batch, 112, 128, 1), f"{x.shape}"
         x = self.norm1(x)
+        assert x.shape == (batch, 112, 128, 1), f"{x.shape}"
         x = self.dropout1(x)
+        assert x.shape == (batch, 112, 128, 1), f"{x.shape}"
         x = self.attn1(x)
-
+        assert x.shape == (batch, 112, 128, 1), f"{x.shape}"
+        
         x = self.conv2(x)
+        assert x.shape == (batch, 144, 128, 1), f"{x.shape}"
         x = nn.ReLU(inplace=False)(x)
+        assert x.shape == (batch, 144, 128, 1), f"{x.shape}"
         x = self.pool(x)
+        assert x.shape == (batch, 144, 64, 1), f"{x.shape}"
         x = self.norm2(x)
+        assert x.shape == (batch, 144, 64, 1), f"{x.shape}"
         x = self.dropout2(x)
+        assert x.shape == (batch, 144, 64, 1), f"{x.shape}"
         x = self.attn2(x)
+        assert x.shape == (batch, 144, 64, 1), f"{x.shape}"
 
         x = self.conv3(x)
+        assert x.shape == (batch, 144, 64, 1), f"{x.shape}"
         x = nn.ReLU(inplace=False)(x)
+        assert x.shape == (batch, 144, 64, 1), f"{x.shape}"
         x = self.pool(x)
+        assert x.shape == (batch, 144, 32, 1), f"{x.shape}"
         x = self.norm3(x)
+        assert x.shape == (batch, 144, 32, 1), f"{x.shape}"
         x = self.dropout3(x)
+        assert x.shape == (batch, 144, 32, 1), f"{x.shape}"
         x = self.attn3(x)
+        assert x.shape == (batch, 144, 32, 1), f"{x.shape}"
         x = self.attn4(x)
 
         x = x.view(x.size(0), -1)  # Flatten
+        assert x.shape == (batch, 144*32), f"{x.shape}" # 144*32=4608
         
         # Shared fully connected layer
         x = self.fc1_shared(x)
-        
+        assert x.shape == (batch, 800), f"{x.shape}"
+
         # Independent branches
         out1 = self.fc1_branch1(x)
+        assert out1.shape == (batch, 1), f"{out1.shape}"
         out2 = self.fc1_branch2(x)
+        assert out2.shape == (batch, 1), f"{out2.shape}"
         out3 = self.fc1_branch3(x)
+        assert out3.shape == (batch, 1), f"{out3.shape}"
 
-        return torch.cat([out1, out2, out3], dim=1)
+        result = torch.cat([out1, out2, out3], dim=1)
+        assert result.shape == (batch, 3), f"{result.shape}"
+
+        return result
