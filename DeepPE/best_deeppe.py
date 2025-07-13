@@ -8,6 +8,8 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from scipy.stats import pearsonr, spearmanr
 
+from models import BestDeepPEModel
+
 # ========== 路径与日志配置 ==========
 BASE_DIR = '/root/project'
 DATA_DIR = os.path.join(BASE_DIR, 'DeepPE', 'DeepPE_data')
@@ -63,42 +65,6 @@ class PrimeEditingDataset(Dataset):
             if c in mapping:
                 arr[mapping[c], i] = 1.0
         return torch.from_numpy(arr)
-
-# ========== 模型定义 ==========
-class DeepPEModel(nn.Module):
-    def __init__(self, filter_size, filter_num, length,
-                 node1, node2, feat_dim, bio_proj_dim, dropout):
-        super().__init__()
-        # 双路卷积
-        self.conv     = nn.Conv1d(4, filter_num, kernel_size=filter_size)
-        self.conv_mod = nn.Conv1d(4, filter_num, kernel_size=filter_size)
-        conv_len = length - filter_size + 1
-        flat_dim = conv_len * filter_num
-
-        # 生物特征投影
-        self.bio_proj = nn.Linear(feat_dim, bio_proj_dim)
-
-        # 全连接
-        total_in = flat_dim * 2 + bio_proj_dim
-        self.fc1    = nn.Linear(total_in, node1)
-        self.fc2    = nn.Linear(node1, node2) if node2 > 0 else None
-        self.out    = nn.Linear(node2 if node2>0 else node1, 3)
-        self.drop   = nn.Dropout(dropout)
-
-    def forward(self, x, x_mod, bio):
-        h1 = F.relu(self.conv(x))
-        h1 = self.drop(h1).view(h1.size(0), -1)
-        h2 = F.relu(self.conv_mod(x_mod))
-        h2 = self.drop(h2).view(h2.size(0), -1)
-
-        bio_p = F.relu(self.bio_proj(bio))
-        bio_p = self.drop(bio_p)
-
-        h = torch.cat([h1, h2, bio_p], dim=1)
-        h = F.relu(self.fc1(h)); h = self.drop(h)
-        if self.fc2:
-            h = F.relu(self.fc2(h)); h = self.drop(h)
-        return self.out(h)
 
 # ========== 评估函数 ==========
 def eval_metrics(model, loader, device):
@@ -164,7 +130,7 @@ k562_loader = DataLoader(
 )
 
 # ========== 模型、优化器、损失 ==========
-model = DeepPEModel(
+model = BestDeepPEModel(
     filter_size   = best_params['filter_size'],
     filter_num    = best_params['filter_num'],
     length        = LENGTH,
